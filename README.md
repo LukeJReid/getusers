@@ -1,4 +1,4 @@
-#GetUsers
+# GetUsers
 A small python script for getting and displaying Linux users and login times
 
 ### Usage
