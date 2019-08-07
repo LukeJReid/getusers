@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+
 ###################################
 # Imports
 ###################################
@@ -12,6 +13,7 @@ import re
 import subprocess
 import time
 import datetime
+import pydoc
 from time import localtime, strptime
 
 __version__ = '1.0.0'
@@ -19,31 +21,46 @@ __version__ = '1.0.0'
 ###################################
 # Useful variables for the script
 ###################################
-# Parsing commandline arguments
 
 
 def options():
+    '''Processes commandline arguments. Returns the argparse parser'''
     parser = argparse.ArgumentParser()
     parser.add_argument('-v', '--version', dest='show_version',
                         action='store_true', help='Shows script version')
 
-    parser.add_argument('-s', '--system-users', dest='show_system_users',
-                        action='store_true', help='Show system users on the device')
+    parser.add_argument('-s', '--system-users',
+                        dest='show_system_users',
+                        action='store_true',
+                        help='Show system users on the device'
+                        )
 
-    parser.add_argument('-u', '--users', dest='show_users',
-                        action='store_true', help='Show users on this device')
+    parser.add_argument('-u', '--users',
+                        dest='show_users',
+                        action='store_true',
+                        help='Show users on this device. This is the default'
+                        )
 
-    parser.add_argument('-a', '--all-users', dest='show_all_users', action='store_true',
-                        help='Show all users on this device. This is the default option')
+    parser.add_argument('-a', '--all-users',
+                        dest='show_all_users',
+                        action='store_true',
+                        help='Show all users on this device.'
+                        )
 
-    parser.add_argument('-F', '--show-full', dest='show_full_output', action='store_true',
-                        help='When displaying, show the full user information including GECOS and Group ID')
+    parser.add_argument('-F', '--show-full',
+                        dest='show_full_output',
+                        action='store_true',
+                        help='show the full user information'
+                        )
     return parser
-
-# Colours for display output
 
 
 class Color(object):
+    '''
+    This class contains the colors for commandline output
+    Available colors:
+    Red, Green, Yellow, Blue, Magenta, Cyan, White, Reset
+    '''
     RED = '\033[31m\033[1m'
     GREEN = '\033[32m\033[1m'
     YELLOW = '\033[33m\033[1m'
@@ -53,11 +70,23 @@ class Color(object):
     WHITE = '\033[37m\033[1m'
     RESET = '\033[0m'
 
-# Configuration variables
-
 
 class Config(object):
-    # System files
+    '''
+    This class contains configuration variables for use in the script
+
+    Attributes:
+        DEFS_FILE:      Location of the linux defs file
+        GROUP_FILE:     Location of the system groups file
+        PASSWD_FILE:    Location of the local users (passwd) file
+        SUDO_FILE:      Location of the sudoers file
+        WTMP_FILE:      Location of the wtmp file (Containing login history)
+
+        HEADER_STANDARD:    Header rows for the output table from the script
+        HEADER_FULL:        Header rows for the output table from the script
+
+        LAST_CMD:    Command to execute to get the login history on the device
+    '''
     DEFS_FILE = '/etc/login.defs'
     GROUP_FILE = '/etc/group'
     PASSWD_FILE = '/etc/passwd'
@@ -72,11 +101,23 @@ class Config(object):
     # Other configurations
     LAST_CMD = 'last -w -i -f '
 
-# Used for storing runtime data
-
 
 class Users(object):
-    # Set some sane defaults in case they are not defined (Ubuntu)
+    '''
+    This class stores runtime data for the script
+
+    Attributes:
+        UID_MIN:        The minimum ID of users
+        UID_MAX:        The maximum ID of users
+        SYS_UID_MIN:    The minimum ID of system users
+        SYS_UID_MAX:    The maximum ID of system users
+
+        SUDO_CONTENT:   An array of the content from the sudoers file
+        GROUP_CONTENT:  An array of the content from the groups file
+
+        USERS:          The output from the pwd module with all users
+        LOGINS:         Contains the login history of users
+    '''
     UID_MIN = 1000
     UID_MAX = 60000
     SYS_UID_MIN = 0
@@ -90,10 +131,10 @@ class Users(object):
 ###################################
 # Non-Display functions for the script
 ###################################
-# Get all of the users and initalize all the required variables and data for the script
 
 
 def init_variables():
+    '''Initialises and retrives data for later use in the script'''
     # First test we can open all the required files, exit if not
     # Check access to passwd
     try:
@@ -145,7 +186,10 @@ def init_variables():
     # Get all of the logins from WTMP
     # Open new process and run the last command
     p = subprocess.Popen(Config.LAST_CMD + Config.WTMP_FILE,
-                         shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                         shell=True,
+                         stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE
+                         )
 
     # Loop through the lines of output
     for line in p.stdout.readlines():
@@ -158,10 +202,9 @@ def init_variables():
         if(len(row) > 0):
             Users.LOGINS.append(row)
 
-# Get all system users (In system UID range), with login times
-
 
 def get_system_users():
+    '''Get system users. Returns array'''
     users_table = []
     for x in Users.USERS:
         if(x[2] <= Users.SYS_UID_MAX):
@@ -172,11 +215,10 @@ def get_system_users():
             last_login = get_last_login(x[0])
             users_table.append([x[2], x[0], x[5], x[6], sudo, last_login])
     return users_table
-
-# Get all system users (In system UID range), with login times and display GECOS and group ID
 
 
 def get_system_full():
+    '''Get system users and GECOS and group ID. Returns array'''
     users_table = []
     for x in Users.USERS:
         if(x[2] <= Users.SYS_UID_MAX):
@@ -194,10 +236,9 @@ def get_system_full():
                 [x[2], x[0], x[3], gecos, x[5], x[6], sudo, last_login])
     return users_table
 
-# Get all non-system users (In user UID range), with login times
-
 
 def get_users():
+    '''Get non system users. Returns array'''
     users_table = []
     for x in Users.USERS:
         if(Users.UID_MIN <= x[2] <= Users.UID_MAX):
@@ -209,10 +250,9 @@ def get_users():
             users_table.append([x[2], x[0], x[5], x[6], sudo, last_login])
     return users_table
 
-# Get all non-system users (In user UID range), with login times and display GECOS and group ID
-
 
 def get_users_full():
+    '''Get non system users and GECOS and group ID. Returns array'''
     users_table = []
     for x in Users.USERS:
         if(Users.UID_MIN <= x[2] <= Users.UID_MAX):
@@ -230,10 +270,9 @@ def get_users_full():
                 [x[2], x[0], x[3], gecos, x[5], x[6], sudo, last_login])
     return users_table
 
-# Get all users, and login times
-
 
 def get_all_users():
+    '''Gets all users. Returns array'''
     users_table = []
     for x in Users.USERS:
         if is_sudo(x[0]):
@@ -244,10 +283,9 @@ def get_all_users():
         users_table.append([x[2], x[0], x[5], x[6], sudo, last_login])
     return users_table
 
-# Get all users, and login times and display GECOS and group ID
-
 
 def get_all_users_full():
+    '''Gets all users and GECOS and Group ID. Returns array'''
     users_table = []
     for x in Users.USERS:
         if is_sudo(x[0]):
@@ -264,10 +302,17 @@ def get_all_users_full():
             [x[2], x[0], x[3], gecos, x[5], x[6], sudo, last_login])
     return users_table
 
-# Check if a user is in the sudoers file, or sudo groups
-
 
 def is_sudo(user):
+    '''
+    Checks if a provided username has sudo privileges.
+
+    Parameters:
+        user (string):     The username to be checked
+
+    Returns:
+        boolean:    True / False whether the user is sudo or not
+    '''
     # If they are in the sudo file (Just checks if their name is listed)
     for line in Users.SUDO_CONTENT:
         if user+" " in line:
@@ -279,7 +324,11 @@ def is_sudo(user):
             fields[0]
         except IndexError:
             continue
-        if (fields[0] == "wheel" or fields[0] == "admin" or fields[0] == "sudo"):
+        if (
+            fields[0] == "wheel"
+            or fields[0] == "admin"
+            or fields[0] == "sudo"
+        ):
             groupusers = fields[3].split(',')
             for groupuser in groupusers:
                 if groupuser == user:
@@ -287,27 +336,41 @@ def is_sudo(user):
 
     return False
 
-# Get the max length of a value in an array (For printing tables with padding)
-
 
 def get_max_field_length(table):
+    '''
+    Gets the longest field length in a provided array, up to 2 arrays deep.
+
+    Parameters:
+        table (array): The table to be checked for the longest field length
+
+    Returns:
+        integer:    The length of the longest field
+    '''
     max_length = 0
     for x in table:
         if isinstance(x, (pwd.struct_passwd, tuple, list, set)):
             for i in range(len(x)):
-                l = len(str(x[i]))
-                if l > max_length:
-                    max_length = l
+                length = len(str(x[i]))
+                if length > max_length:
+                    max_length = length
         else:
-            l = len(str(x))
-            if l > max_length:
-                max_length = l
+            length = len(str(x))
+            if length > max_length:
+                max_length = length
     return max_length
-
-# Get the time when a user last logged in
 
 
 def get_last_login(user):
+    '''
+    Gets the last login time for a user.
+
+    Parameters:
+        user (string): The username to be checked
+
+    Returns:
+        string:    The last login found (None found, if none)
+    '''
     # Loop over the array we earlier stored from wtmp
     for x in Users.LOGINS:
         if(x[0] == user):
@@ -319,29 +382,34 @@ def get_last_login(user):
 ###################################
 # Display functions for the script
 ###################################
-# Show the scripts header
 
 
 def show_header():
+    '''Prints the header for the script (ASCII Art)'''
     print(Color.GREEN + r'''
-   ______     __     __  __                   
+   ______     __     __  __
   / ____/__  / /_   / / / /_______  __________
  / / __/ _ \/ __/  / / / / ___/ _ \/ ___/ ___/
-/ /_/ /  __/ /_   / /_/ (__  )  __/ /  (__  ) 
-\____/\___/\__/   \____/____/\___/_/  /____/  
-                                                                                          
+/ /_/ /  __/ /_   / /_/ (__  )  __/ /  (__  )
+\____/\___/\__/   \____/____/\___/_/  /____/
     ''', Color.RESET)
-
-# Show the scripts version
 
 
 def show_version():
+    '''Prints the version number of the script'''
     print(Color.GREEN + r'''Version: %s ''' % (__version__), Color.RESET)
-
-# Print the provided table in a padded / tidy format
 
 
 def print_table(headers, table):
+    '''
+    Prints a formatted table with the provided headers and table content
+
+    Parameters:
+        headers (array):    The row of headers to go at the top of the table
+        table (array):      The table content
+
+    Returns: None
+    '''
     header_max = get_max_field_length(headers) + 2
     table_max = get_max_field_length(table) + 2
 
@@ -362,6 +430,7 @@ def print_table(headers, table):
 
 
 def show_system_users(ARGS):
+    '''Main Feature: Retreives and prints system users'''
     if ARGS.show_full_output:
         users_table = get_system_full()
         print_table(Config.HEADER_FULL, users_table)
@@ -373,6 +442,7 @@ def show_system_users(ARGS):
 
 
 def show_users(ARGS):
+    '''Main Feature: Retreives and prints standard users'''
     if ARGS.show_full_output:
         users_table = get_users_full()
         print_table(Config.HEADER_FULL, users_table)
@@ -384,6 +454,7 @@ def show_users(ARGS):
 
 
 def show_all_users(ARGS):
+    '''Main Feature: Retreives and prints all users'''
     if ARGS.show_full_output:
         users_table = get_all_users_full()
         print_table(Config.HEADER_FULL, users_table)
@@ -398,6 +469,7 @@ def show_all_users(ARGS):
 
 
 def main():
+    '''Main script execution'''
     show_header()
     init_variables()
 
