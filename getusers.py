@@ -379,6 +379,30 @@ def get_last_login(user):
 
     return "None found"
 
+
+def get_column_widths(table):
+    '''
+    Gets the maximum widths for each column
+
+    Parameters:
+        table (array):  The table to check the widths for
+
+    Returns:
+        columns (list): The coulumn widths for the table
+    '''
+    column_widths = []
+    for x in table:
+        for i in range(len(x)):
+            # The length of this field
+            length = len(str(x[i]))
+            # If a lengnth is already in the table, compare
+            if len(x) == len(column_widths):
+                if length > column_widths[i]:
+                    column_widths[i] = length
+            else:
+                column_widths.append(length)
+    return column_widths
+
 ###################################
 # Display functions for the script
 ###################################
