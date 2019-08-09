@@ -337,30 +337,6 @@ def is_sudo(user):
     return False
 
 
-def get_max_field_length(table):
-    '''
-    Gets the longest field length in a provided array, up to 2 arrays deep.
-
-    Parameters:
-        table (array): The table to be checked for the longest field length
-
-    Returns:
-        integer:    The length of the longest field
-    '''
-    max_length = 0
-    for x in table:
-        if isinstance(x, (pwd.struct_passwd, tuple, list, set)):
-            for i in range(len(x)):
-                length = len(str(x[i]))
-                if length > max_length:
-                    max_length = length
-        else:
-            length = len(str(x))
-            if length > max_length:
-                max_length = length
-    return max_length
-
-
 def get_last_login(user):
     '''
     Gets the last login time for a user.
@@ -378,6 +354,30 @@ def get_last_login(user):
             return login
 
     return "None found"
+
+
+def get_column_widths(table):
+    '''
+    Gets the maximum widths for each column
+
+    Parameters:
+        table (array):  The table to check the widths for
+
+    Returns:
+        columns (list): The coulumn widths for the table
+    '''
+    column_widths = []
+    for x in table:
+        for i in range(len(x)):
+            # The length of this field
+            length = len(str(x[i]))
+            # If a lengnth is already in the table, compare
+            if len(x) == len(column_widths):
+                if length > column_widths[i]:
+                    column_widths[i] = length
+            else:
+                column_widths.append(length)
+    return column_widths
 
 ###################################
 # Display functions for the script
@@ -410,19 +410,31 @@ def print_table(headers, table):
 
     Returns: None
     '''
-    header_max = get_max_field_length(headers) + 2
-    table_max = get_max_field_length(table) + 2
+    if(len(table) == 0):
+        print(Color.RED + "No users found!" + Color.RESET)
+        return
 
-    if(header_max > table_max):
-        column_width = header_max
-    else:
-        column_width = table_max
+    column_widths = get_column_widths(table)
 
-    print(Color.GREEN + "".join(str(word).ljust(column_width)
-                                for word in headers), Color.RESET)
+    print(Color.GREEN, end='')
+
+    for i in range(len(headers)):
+        row = headers[i]
+        width = column_widths[i] + 3
+        print("".join(str(row).ljust(width)), end="")
+
+    print(Color.RESET)
+    print(Color.CYAN, end='')
+
     for x in table:
-        print(Color.CYAN + "".join(str(word).ljust(column_width)
-                                   for word in x), Color.RESET)
+        for i in range(len(x)):
+            row = x[i]
+            width = column_widths[i] + 3
+            print("".join(str(row).ljust(width)), end="")
+        print("")
+
+    print(Color.RESET)
+    return
 
 ###################################
 # Main features
