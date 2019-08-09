@@ -337,30 +337,6 @@ def is_sudo(user):
     return False
 
 
-def get_max_field_length(table):
-    '''
-    Gets the longest field length in a provided array, up to 2 arrays deep.
-
-    Parameters:
-        table (array): The table to be checked for the longest field length
-
-    Returns:
-        integer:    The length of the longest field
-    '''
-    max_length = 0
-    for x in table:
-        if isinstance(x, (pwd.struct_passwd, tuple, list, set)):
-            for i in range(len(x)):
-                length = len(str(x[i]))
-                if length > max_length:
-                    max_length = length
-        else:
-            length = len(str(x))
-            if length > max_length:
-                max_length = length
-    return max_length
-
-
 def get_last_login(user):
     '''
     Gets the last login time for a user.
