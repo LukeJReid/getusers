@@ -434,19 +434,31 @@ def print_table(headers, table):
 
     Returns: None
     '''
-    header_max = get_max_field_length(headers) + 2
-    table_max = get_max_field_length(table) + 2
+    if(len(table) == 0):
+        print(Color.RED + "No users found!" + Color.RESET)
+        return
 
-    if(header_max > table_max):
-        column_width = header_max
-    else:
-        column_width = table_max
+    column_widths = get_column_widths(table)
 
-    print(Color.GREEN + "".join(str(word).ljust(column_width)
-                                for word in headers), Color.RESET)
+    print(Color.GREEN, end='')
+
+    for i in range(len(headers)):
+        row = headers[i]
+        width = column_widths[i] + 3
+        print("".join(str(row).ljust(width)), end="")
+
+    print(Color.RESET)
+    print(Color.CYAN, end='')
+
     for x in table:
-        print(Color.CYAN + "".join(str(word).ljust(column_width)
-                                   for word in x), Color.RESET)
+        for i in range(len(x)):
+            row = x[i]
+            width = column_widths[i] + 3
+            print("".join(str(row).ljust(width)), end="")
+        print("")
+
+    print(Color.RESET)
+    return
 
 ###################################
 # Main features
