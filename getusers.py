@@ -14,7 +14,8 @@ import subprocess
 import time
 import datetime
 import pydoc
-from time import localtime, strptime
+import time
+import struct
 
 __version__ = '1.0.0'
 
@@ -92,7 +93,7 @@ class Config(object):
     PASSWD_FILE = '/etc/passwd'
     SUDO_FILE = '/etc/sudoers'
     WTMP_FILE = '/var/log/wtmp'
-
+    LAST_FILE = '/var/log/lastlog'
     # Headers for table output
     HEADER_STANDARD = ['ID', 'User', 'Home', 'Shell', 'Sudo', 'Last Login']
     HEADER_FULL = ['ID', 'User', 'Group ID', 'GECOS',
@@ -183,24 +184,33 @@ def init_variables():
     # Get all users from the system into a table
     Users.USERS = pwd.getpwall()
 
-    # Get all of the logins from WTMP
-    # Open new process and run the last command
-    p = subprocess.Popen(Config.LAST_CMD + Config.WTMP_FILE,
-                         shell=True,
-                         stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE
-                         )
+    # Get all of the logins from lastlog
+    try:
+        last_file = open(Config.LAST_FILE, 'r')
+    except IOError:
+        sys.exit("Unable to open " + Config.LAST_FILE)
 
-    # Loop through the lines of output
-    for line in p.stdout.readlines():
-        # If running on Python 3 or above
-        if(sys.version_info[0] >= 3):
-            row = line.decode().strip().split()
-        else:
-            row = str(line).strip().split()
+    uid = 0
+    chunk_size = struct.calcsize('=L32s256s')
+    for chunk in read_in_chunks(last_file, chunk_size):
+        # Unpack the binary data
+        row = list(struct.unpack('=L32s256s', chunk))
+        timestamp = row[0]
+        if(timestamp == 0):
+            # If there is no login, continue
+            uid = uid + 1
+            continue
+        # Convert the timestamp
+        datetime = time.ctime(timestamp)
+        # Strip trailing null characters
+        terminal = row[1].rstrip('\x00')
+        host = row[2].rstrip('\x00')
 
-        if(len(row) > 0):
-            Users.LOGINS.append(row)
+        login = [uid, datetime, host, terminal]
+        Users.LOGINS.append(login)
+        uid = uid + 1
+
+    last_file.close()
 
 
 def get_system_users():
@@ -212,7 +222,7 @@ def get_system_users():
                 sudo = "yes"
             else:
                 sudo = "no"
-            last_login = get_last_login(x[0])
+            last_login = get_last_login(x[2])
             users_table.append([x[2], x[0], x[5], x[6], sudo, last_login])
     return users_table
 
@@ -226,7 +236,7 @@ def get_system_full():
                 sudo = "yes"
             else:
                 sudo = "no"
-            last_login = get_last_login(x[0])
+            last_login = get_last_login(x[2])
             gecos = x[4]
             # Truncate comment field to stop output being huge
             gecos = (gecos[:16] + "..") if len(gecos) > 18 else gecos
@@ -246,7 +256,7 @@ def get_users():
                 sudo = "yes"
             else:
                 sudo = "no"
-            last_login = get_last_login(x[0])
+            last_login = get_last_login(x[2])
             users_table.append([x[2], x[0], x[5], x[6], sudo, last_login])
     return users_table
 
@@ -260,7 +270,7 @@ def get_users_full():
                 sudo = "yes"
             else:
                 sudo = "no"
-            last_login = get_last_login(x[0])
+            last_login = get_last_login(x[2])
             gecos = x[4]
             # Truncate comment field to stop output being huge
             gecos = (gecos[:16] + "..") if len(gecos) > 18 else gecos
@@ -279,7 +289,7 @@ def get_all_users():
             sudo = "yes"
         else:
             sudo = "no"
-        last_login = get_last_login(x[0])
+        last_login = get_last_login(x[2])
         users_table.append([x[2], x[0], x[5], x[6], sudo, last_login])
     return users_table
 
@@ -292,7 +302,7 @@ def get_all_users_full():
             sudo = "yes"
         else:
             sudo = "no"
-        last_login = get_last_login(x[0])
+        last_login = get_last_login(x[2])
         gecos = x[4]
         # Truncate comment field to stop output being huge
         gecos = (gecos[:16] + "..") if len(gecos) > 18 else gecos
@@ -342,7 +352,7 @@ def get_last_login(user):
     Gets the last login time for a user.
 
     Parameters:
-        user (string): The username to be checked
+        user (string): The user id to be checked
 
     Returns:
         string:    The last login found (None found, if none)
@@ -350,7 +360,7 @@ def get_last_login(user):
     # Loop over the array we earlier stored from wtmp
     for x in Users.LOGINS:
         if(x[0] == user):
-            login = x[3] + ' ' + x[4] + ' ' + x[5] + ' ' + x[6]
+            login = x[1]
             return login
 
     return "None found"
@@ -378,6 +388,27 @@ def get_column_widths(table):
             else:
                 column_widths.append(length)
     return column_widths
+
+
+def read_in_chunks(file, chunk_size=1024*64):
+    '''
+    Reads the provided file in specified chunks
+
+    Parameters:
+        file: The open file handler
+        chumk_size: The chunk size to be read
+
+    Return:
+        chunk: The read chunk from the file
+    '''
+    while True:
+        chunk = file.read(chunk_size)
+        if chunk:
+            yield chunk
+        else:
+            # The chunk was empty, which means we're at the end
+            # of the file
+            return
 
 ###################################
 # Display functions for the script
