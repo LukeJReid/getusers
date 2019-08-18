@@ -103,7 +103,6 @@ class Config(object):
     LAST_CMD = 'last -w -i -f '
 
 
-
 class Users(object):
     '''
     This class stores runtime data for the script
@@ -187,15 +186,15 @@ def init_variables():
 
     # Get all of the logins from lastlog
     try:
-        last_file = open(Config.LAST_FILE,'r')
-    except:
+        last_file = open(Config.LAST_FILE, 'r')
+    except IOError:
         sys.exit("Unable to open " + Config.LAST_FILE)
 
     uid = 0
     chunk_size = struct.calcsize('=L32s256s')
     for chunk in read_in_chunks(last_file, chunk_size):
         # Unpack the binary data
-        row = list(struct.unpack('=L32s256s',chunk))
+        row = list(struct.unpack('=L32s256s', chunk))
         timestamp = row[0]
         if(timestamp == 0):
             # If there is no login, continue
@@ -210,6 +209,9 @@ def init_variables():
         login = [uid, datetime, host, terminal]
         Users.LOGINS.append(login)
         uid = uid + 1
+
+    last_file.close()
+
 
 def get_system_users():
     '''Get system users. Returns array'''
@@ -350,7 +352,7 @@ def get_last_login(user):
     Gets the last login time for a user.
 
     Parameters:
-        user (string): The username to be checked
+        user (string): The user id to be checked
 
     Returns:
         string:    The last login found (None found, if none)
@@ -387,12 +389,13 @@ def get_column_widths(table):
                 column_widths.append(length)
     return column_widths
 
+
 def read_in_chunks(file, chunk_size=1024*64):
     '''
     Reads the provided file in specified chunks
 
     Parameters:
-        file: The open file handler 
+        file: The open file handler
         chumk_size: The chunk size to be read
 
     Return:
