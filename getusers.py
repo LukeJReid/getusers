@@ -513,11 +513,12 @@ def show_all_users(ARGS):
 
 def main():
     '''Main script execution'''
-    show_header()
-    init_variables()
-
     PARSER = options()
     ARGS = PARSER.parse_args()
+
+    if not ARGS.help:
+        show_header()
+        init_variables()
 
     if ARGS.show_version:
         print(Color.MAGENTA + r"Showing version", Color.RESET)
